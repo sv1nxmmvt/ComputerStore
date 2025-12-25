@@ -1,0 +1,190 @@
+﻿@* ================================================= *@
+
+@* Pages/Reference/Equipment.razor *@
+@page "/reference/equipment"
+@rendermode InteractiveServer
+@using ComputerStore.Data
+@using ComputerStore.Models
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Оборудование</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-5">Справочник оборудования</h1>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Фильтр по статусу</label>
+                    <select class="form-select" @bind="filterStatus" @bind:after="ApplyFilters">
+                        <option value="all">Все</option>
+                        <option value="available">Доступные</option>
+                        <option value="sold">Проданные</option>
+                        <option value="warehouse">На складе</option>
+                        <option value="stores">В магазинах</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Поиск</label>
+                    <input type="text" class="form-control" @bind="searchText" @bind:event="oninput" @bind:after="ApplyFilters" placeholder="Название оборудования..." />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            @if (filteredEquipment.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Наименование</th>
+                                <th>Статус</th>
+                                <th>Расположение</th>
+                                <th>Цена закупки</th>
+                                <th>Наценка</th>
+                                <th>Поставщик</th>
+                                <th>Дата поступления</th>
+                                <th>Гарантия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var eq in filteredEquipment.Take(50))
+                            {
+                                <tr class="@(eq.IsSold ? "table-secondary" : "")">
+                                    <td>@eq.Name</td>
+                                    <td>
+                                        @if (eq.IsSold)
+                                        {
+                                            <span class="badge bg-secondary">Продан</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success">Доступен</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (eq.IsSold)
+                                        {
+                                            <small class="text-muted">Продан @eq.SoldDate?.ToString("dd.MM.yyyy")</small>
+                                        }
+                                        else if (eq.IsOnCentralWarehouse)
+                                        {
+                                            <span class="badge bg-primary">Центр. склад</span>
+                                        }
+                                        else if (eq.StorePoint != null)
+                                        {
+                                            <small>@eq.StorePoint.Name</small>
+                                        }
+                                    </td>
+                                    <td>@eq.PurchasePrice.ToString("C0")</td>
+                                    <td>@eq.SupplierMarkup.ToString("P0")</td>
+                                    <td><small>@eq.Supplier.Name</small></td>
+                                    <td>@eq.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@eq.WarrantyMonths мес.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (filteredEquipment.Count > 50)
+                {
+                    <div class="alert alert-info mt-3">
+                        Показано первых 50 из @filteredEquipment.Count результатов. Уточните поиск.
+                    </div>
+                }
+
+                <div class="row mt-3">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <small class="text-muted">Всего товаров</small>
+                                <h4 class="mb-0">@filteredEquipment.Count</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <small class="text-muted">Доступно</small>
+                                <h4 class="mb-0 text-success">@filteredEquipment.Count(e => !e.IsSold)</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <small class="text-muted">Продано</small>
+                                <h4 class="mb-0 text-secondary">@filteredEquipment.Count(e => e.IsSold)</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <small class="text-muted">Общая стоимость</small>
+                                <h4 class="mb-0">@filteredEquipment.Where(e => !e.IsSold).Sum(e => e.PurchasePrice).ToString("C0")</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>Оборудование не найдено
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Equipment> allEquipment = new();
+    private List<Equipment> filteredEquipment = new();
+    private string filterStatus = "all";
+    private string searchText = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        allEquipment = await DbContext.Equipments
+            .Include(e => e.Supplier)
+            .Include(e => e.StorePoint)
+            .OrderBy(e => e.Name)
+            .ToListAsync();
+
+        ApplyFilters();
+    }
+
+    private void ApplyFilters()
+    {
+        var query = allEquipment.AsEnumerable();
+
+        // Фильтр по статусу
+        query = filterStatus switch
+        {
+            "available" => query.Where(e => !e.IsSold),
+            "sold" => query.Where(e => e.IsSold),
+            "warehouse" => query.Where(e => !e.IsSold && e.IsOnCentralWarehouse),
+            "stores" => query.Where(e => !e.IsSold && !e.IsOnCentralWarehouse),
+            _ => query
+        };
+
+        // Поиск по названию
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            query = query.Where(e => e.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+        }
+
+        filteredEquipment = query.ToList();
+    }
+}

@@ -1,0 +1,113 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportSellerSales.razor *@
+@using ComputerStore.Models
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Сделки продавца</h4>
+
+<div class="mb-3">
+    <label class="form-label">Продавец</label>
+    <select class="form-select" @onchange="OnSellerChanged">
+        <option value="0">-- Выберите продавца --</option>
+        @foreach (var seller in Sellers)
+        {
+            <option value="@seller.Id">@seller.FullName</option>
+        }
+    </select>
+</div>
+
+@if (Data.Any())
+{
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link @(filter == "all" ? "active" : "")" 
+                    @onclick='() => filter = "all"'>
+                Все (@Data.Count)
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(filter == "cash" ? "active" : "")" 
+                    @onclick='() => filter = "cash"'>
+                Розница (@Data.Count(d => d.PaymentType == "Розница"))
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(filter == "cashless" ? "active" : "")" 
+                    @onclick='() => filter = "cashless"'>
+                Безнал (@Data.Count(d => d.PaymentType == "Безнал"))
+            </button>
+        </li>
+    </ul>
+
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Дата</th>
+                    <th>Тип оплаты</th>
+                    <th>Сумма</th>
+                    <th>Торговая точка</th>
+                    <th>Товары</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sale in FilteredData.OrderByDescending(d => d.SaleDate))
+                {
+                    <tr>
+                        <td>@sale.SaleDate.ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>
+                            @if (sale.PaymentType == "Розница")
+                            {
+                                <span class="badge bg-warning text-dark">Розница</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-info">Безнал</span>
+                            }
+                        </td>
+                        <td class="fw-bold">@sale.TotalAmount.ToString("C0")</td>
+                        <td>@sale.StorePointName</td>
+                        <td>
+                            <small>@string.Join(", ", sale.Items)</small>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="alert alert-success">
+        <strong>Итого:</strong> @FilteredData.Sum(d => d.TotalAmount).ToString("C0")
+    </div>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>Выберите продавца для просмотра сделок
+    </div>
+}
+@code {
+    [Parameter] public List<SellerSalesDto> Data { get; set; } = new();
+    [Parameter] public List<Seller> Sellers { get; set; } = new();
+    [Parameter] public EventCallback<int> OnFilterChanged { get; set; }
+
+    private string filter = "all";
+
+    private IEnumerable<SellerSalesDto> FilteredData =>
+        filter switch
+        {
+            "cash" => Data.Where(d => d.PaymentType == "Розница"),
+            "cashless" => Data.Where(d => d.PaymentType == "Безнал"),
+            _ => Data
+        };
+
+    private async Task OnSellerChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int sellerId) && sellerId > 0)
+        {
+            filter = "all"; // сбрасываем фильтр при смене продавца
+            await OnFilterChanged.InvokeAsync(sellerId);
+        }
+    }
+}

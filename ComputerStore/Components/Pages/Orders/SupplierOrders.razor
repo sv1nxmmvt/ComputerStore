@@ -1,0 +1,302 @@
+﻿@page "/orders/supplier"
+@rendermode InteractiveServer
+@using ComputerStore.Services
+@using ComputerStore.Models
+@using ComputerStore.Data
+@using Microsoft.EntityFrameworkCore
+@inject IOrderService OrderService
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Заказы поставщикам</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Главная</a></li>
+                    <li class="breadcrumb-item active">Заказы поставщикам</li>
+                </ol>
+            </nav>
+            <h1 class="display-5">Формирование заказов поставщикам</h1>
+            <p class="lead text-muted">Старший менеджер</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Генерация недельных заказов</h5>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            @errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            @successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="form-label">Начало недели</label>
+                        <input type="date" class="form-control" @bind="selectedWeekStart" />
+                        <small class="form-text text-muted">
+                            Выберите понедельник недели, за которую нужно сформировать заказы
+                        </small>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary" @onclick="LoadPendingOrders">
+                            <i class="bi bi-eye me-2"></i>Просмотреть заказы
+                        </button>
+                        <button class="btn btn-success"
+                                @onclick="GenerateOrders"
+                                @attributes="DisabledIf(!pendingOrders.Any())">
+                            <i class="bi bi-send me-2"></i>Сформировать заказы поставщикам
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @if (pendingOrders.Any())
+            {
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Необработанные заказы клиентов</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Дата</th>
+                                        <th>Продавец</th>
+                                        <th>Оборудование</th>
+                                        <th>Количество</th>
+                                        <th>Примечания</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var order in pendingOrders)
+                                    {
+                                        <tr>
+                                            <td>@order.OrderDate.ToString("dd.MM.yyyy")</td>
+                                            <td>@order.Seller.FullName</td>
+                                            <td class="fw-medium">@order.EquipmentName</td>
+                                            <td>@order.Quantity</td>
+                                            <td><small>@order.Notes</small></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="alert alert-info mt-3">
+                            <strong>Итого:</strong> @pendingOrders.Count заказов на общую сумму
+                            @pendingOrders.Sum(o => o.Quantity) единиц товара
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (generatedOrders.Any())
+            {
+                <div class="card border-0 shadow-sm border-success border-3">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-check-circle me-2"></i>Сформированные заказы
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @foreach (var order in generatedOrders)
+                        {
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0">@order.Supplier.Name</h6>
+                                    <small class="text-muted">
+                                        @order.Supplier.ContactPerson - @order.Supplier.Phone
+                                    </small>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-0">@order.OrderDetails</p>
+                                    <small class="text-muted">
+                                        Период: @order.WeekStartDate.ToString("dd.MM.yyyy") - @order.WeekEndDate.ToString("dd.MM.yyyy")
+                                    </small>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Инструкция
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ol>
+                        <li class="mb-2">Выберите начало недели (понедельник)</li>
+                        <li class="mb-2">Нажмите "Просмотреть заказы" для просмотра необработанных заказов клиентов</li>
+                        <li class="mb-2">Проверьте список заказов</li>
+                        <li class="mb-2">Нажмите "Сформировать заказы поставщикам"</li>
+                    </ol>
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <small>
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            После формирования заказов они будут отправлены поставщикам,
+                            а заказы клиентов будут отмечены как обработанные
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">История заказов</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    @if (recentSupplierOrders.Any())
+                    {
+                        @foreach (var order in recentSupplierOrders.Take(5))
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">@order.OrderDate.ToString("dd.MM.yyyy")</small>
+                                    @if (order.IsCompleted)
+                                    {
+                                        <span class="badge bg-success">Выполнен</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark">В работе</span>
+                                    }
+                                </div>
+                                <p class="mb-1 fw-medium">@order.Supplier.Name</p>
+                                <small class="text-muted">@order.OrderDetails</small>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="list-group-item text-center text-muted">
+                            Заказов пока нет
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime selectedWeekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + 1);
+    private List<CustomerOrder> pendingOrders = new();
+    private List<SupplierOrder> generatedOrders = new();
+    private List<SupplierOrder> recentSupplierOrders = new();
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRecentSupplierOrders();
+    }
+
+    private IReadOnlyDictionary<string, object>? DisabledIf(bool condition)
+    {
+        return condition
+            ? new Dictionary<string, object> { ["disabled"] = "disabled" }
+            : null;
+    }
+
+
+    private async Task LoadRecentSupplierOrders()
+    {
+        recentSupplierOrders = await DbContext.SupplierOrders
+            .Include(o => o.Supplier)
+            .OrderByDescending(o => o.OrderDate)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private async Task LoadPendingOrders()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var weekEnd = selectedWeekStart.AddDays(7);
+
+            pendingOrders = await DbContext.CustomerOrders
+                .Include(o => o.Seller)
+                .Where(o => !o.IsProcessed
+                    && o.OrderDate >= selectedWeekStart
+                    && o.OrderDate < weekEnd)
+                .OrderBy(o => o.OrderDate)
+                .ToListAsync();
+
+            if (!pendingOrders.Any())
+            {
+                errorMessage = "За выбранную неделю нет необработанных заказов";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при загрузке заказов: {ex.Message}";
+        }
+    }
+
+    private async Task GenerateOrders()
+    {
+        errorMessage = null;
+        successMessage = null;
+        generatedOrders.Clear();
+
+        try
+        {
+            generatedOrders = await OrderService.GenerateWeeklySupplierOrders(selectedWeekStart);
+
+            if (generatedOrders.Any())
+            {
+                successMessage = $"Успешно сформировано {generatedOrders.Count} заказов для поставщиков";
+
+                // Обновляем списки
+                await LoadPendingOrders();
+                await LoadRecentSupplierOrders();
+
+                // Загружаем подробности о поставщиках
+                foreach (var order in generatedOrders)
+                {
+                    var supplier = await DbContext.Suppliers.FindAsync(order.SupplierId);
+                    if (supplier != null)
+                    {
+                        order.Supplier = supplier;
+                    }
+                }
+            }
+            else
+            {
+                errorMessage = "Не удалось сформировать заказы. Возможно, нет подходящих поставщиков.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Ошибка при формировании заказов: {ex.Message}";
+        }
+    }
+}

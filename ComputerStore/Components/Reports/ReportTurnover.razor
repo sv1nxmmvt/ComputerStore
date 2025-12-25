@@ -1,0 +1,93 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportTurnover.razor *@
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Торговый оборот по торговым точкам</h4>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">Месяц</label>
+        <select class="form-select" @bind="selectedMonth">
+            @for (int i = 1; i <= 12; i++)
+            {
+                <option value="@i">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(i)</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Год</label>
+        <select class="form-select" @bind="selectedYear">
+            @for (int y = DateTime.Now.Year - 1; y <= DateTime.Now.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </div>
+</div>
+<button class="btn btn-primary mb-3" @onclick="LoadReport">
+    <i class="bi bi-search me-2"></i>Сформировать
+</button>
+
+@if (Data.Any())
+{
+    <div class="row g-4 mb-4">
+        @foreach (var sp in Data)
+        {
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@sp.StorePointName</h5>
+                        <h3 class="text-primary">@sp.MonthlyRevenue.ToString("C0")</h3>
+                        <p class="text-muted mb-0">Продаж: @sp.SalesCount</p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Торговая точка</th>
+                    <th>Выручка</th>
+                    <th>Количество продаж</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    int rank = 1;
+                }
+                @foreach (var sp in Data)
+                {
+                    <tr>
+                        <td>@rank</td>
+                        <td>@sp.StorePointName</td>
+                        <td class="fw-bold">@sp.MonthlyRevenue.ToString("C0")</td>
+                        <td>@sp.SalesCount</td>
+                    </tr>
+                    rank++;
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="alert alert-success">
+        <strong>Общая выручка:</strong> @Data.Sum(d => d.MonthlyRevenue).ToString("C0")
+    </div>
+}
+
+@code {
+    [Parameter] public List<StorePointTurnoverDto> Data { get; set; } = new();
+    [Parameter] public EventCallback<(int Month, int Year)> OnFilterChanged { get; set; }
+
+    private int selectedMonth = DateTime.Now.Month;
+    private int selectedYear = DateTime.Now.Year;
+
+    private async Task LoadReport()
+    {
+        await OnFilterChanged.InvokeAsync((selectedMonth, selectedYear));
+    }
+}

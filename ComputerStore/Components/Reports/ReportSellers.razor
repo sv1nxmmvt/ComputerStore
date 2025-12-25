@@ -1,0 +1,73 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportSellers.razor *@
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Отчет о продажах продавцов</h4>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">Дата начала</label>
+        <input type="date" class="form-control" @bind="startDate" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Дата окончания</label>
+        <input type="date" class="form-control" @bind="endDate" />
+    </div>
+</div>
+<button class="btn btn-primary mb-3" @onclick="LoadReport">
+    <i class="bi bi-search me-2"></i>Сформировать
+</button>
+
+@if (Data.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Продавец</th>
+                    <th>Количество продаж</th>
+                    <th>Общая сумма</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    int rank = 1;
+                }
+                @foreach (var seller in Data)
+                {
+                    <tr>
+                        <td>
+                            @if (rank == 1)
+                            {
+                                <i class="bi bi-trophy-fill text-warning"></i>
+                            }
+                            else
+                            {
+                                <span>@rank</span>
+                            }
+                        </td>
+                        <td>@seller.SellerName</td>
+                        <td>@seller.SalesCount</td>
+                        <td class="fw-bold">@seller.TotalSales.ToString("C0")</td>
+                    </tr>
+                    rank++;
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public List<SellerReportDto> Data { get; set; } = new();
+    [Parameter] public EventCallback<(DateTime Start, DateTime End)> OnFilterChanged { get; set; }
+
+    private DateTime startDate = DateTime.Today.AddMonths(-1);
+    private DateTime endDate = DateTime.Today;
+
+    private async Task LoadReport()
+    {
+        await OnFilterChanged.InvokeAsync((startDate, endDate));
+    }
+}

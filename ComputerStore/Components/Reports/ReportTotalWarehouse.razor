@@ -1,0 +1,71 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportTotalWarehouse.razor *@
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Общий склад фирмы</h4>
+
+@if (Data.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Наименование</th>
+                    <th>Расположение</th>
+                    <th>Цена закупки</th>
+                    <th>Поставщик</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Data.OrderBy(d => d.Location))
+                {
+                    <tr>
+                        <td>@item.Name</td>
+                        <td>
+                            @if (item.Location == "Центральный склад")
+                            {
+                                <span class="badge bg-primary">@item.Location</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">@item.Location</span>
+                            }
+                        </td>
+                        <td>@item.PurchasePrice.ToString("C0")</td>
+                        <td>@item.SupplierName</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="row mt-4">
+        @foreach (var group in GroupedByLocation)
+        {
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h6>@group.Key</h6>
+                        <p class="mb-0">
+                            Товаров: <strong>@group.Count()</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>На складе нет товаров
+    </div>
+}
+
+@code {
+    [Parameter] public List<TotalWarehouseDto> Data { get; set; } = new();
+
+    private IEnumerable<IGrouping<string, TotalWarehouseDto>> GroupedByLocation =>
+        Data.GroupBy(d => d.Location);
+}

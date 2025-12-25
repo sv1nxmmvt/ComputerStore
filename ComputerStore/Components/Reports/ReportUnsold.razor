@@ -1,0 +1,63 @@
+﻿@* Components/Reports/ReportUnsold.razor *@
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Нереализованные товары</h4>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">Дата начала</label>
+        <input type="date" class="form-control" @bind="startDate" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Дата окончания</label>
+        <input type="date" class="form-control" @bind="endDate" />
+    </div>
+</div>
+<button class="btn btn-primary mb-3" @onclick="LoadReport">
+    <i class="bi bi-search me-2"></i>Сформировать
+</button>
+
+@if (Data.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Товар</th>
+                    <th>Расположение</th>
+                    <th>Дата поступления</th>
+                    <th>Дней на складе</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Data.OrderByDescending(d => d.DaysInStock))
+                {
+                    <tr class="@(item.DaysInStock > 90 ? "table-warning" : "")">
+                        <td>@item.ProductName</td>
+                        <td>@item.Location</td>
+                        <td>@item.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                        <td>
+                            <span class="badge @(item.DaysInStock > 90 ? "bg-danger" : item.DaysInStock > 30 ? "bg-warning text-dark" : "bg-success")">
+                                @item.DaysInStock дней
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted">Всего нереализованных: <strong>@Data.Count</strong></p>
+}
+
+@code {
+    [Parameter] public List<UnsoldProductDto> Data { get; set; } = new();
+    [Parameter] public EventCallback<(DateTime Start, DateTime End)> OnFilterChanged { get; set; }
+
+    private DateTime startDate = DateTime.Today.AddMonths(-3);
+    private DateTime endDate = DateTime.Today;
+
+    private async Task LoadReport()
+    {
+        await OnFilterChanged.InvokeAsync((startDate, endDate));
+    }
+}

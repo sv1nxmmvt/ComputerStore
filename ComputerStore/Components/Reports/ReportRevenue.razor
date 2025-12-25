@@ -1,0 +1,71 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportRevenue.razor *@
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Доход фирмы</h4>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">Дата начала</label>
+        <input type="date" class="form-control" @bind="startDate" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Дата окончания</label>
+        <input type="date" class="form-control" @bind="endDate" />
+    </div>
+</div>
+<button class="btn btn-primary mb-3" @onclick="LoadReport">
+    <i class="bi bi-search me-2"></i>Сформировать
+</button>
+
+@if (Data != null)
+{
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Наличная выручка</h6>
+                    <h3 class="mb-0 text-warning">@Data.CashRevenue.ToString("C0")</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Безналичная выручка</h6>
+                    <h3 class="mb-0 text-info">@Data.CashlessRevenue.ToString("C0")</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Общая выручка</h6>
+                    <h3 class="mb-0 text-primary">@Data.TotalRevenue.ToString("C0")</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Прибыль</h6>
+                    <h3 class="mb-0 text-success">@Data.TotalProfit.ToString("C0")</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public RevenueReportDto? Data { get; set; }
+    [Parameter] public EventCallback<(DateTime Start, DateTime End)> OnFilterChanged { get; set; }
+
+    private DateTime startDate = DateTime.Today.AddMonths(-1);
+    private DateTime endDate = DateTime.Today;
+
+    private async Task LoadReport()
+    {
+        await OnFilterChanged.InvokeAsync((startDate, endDate));
+    }
+}

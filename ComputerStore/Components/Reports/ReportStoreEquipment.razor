@@ -1,0 +1,70 @@
+﻿@* Components/Reports/ReportStoreEquipment.razor *@
+@using ComputerStore.Models
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Товары в торговом зале</h4>
+
+<div class="mb-3">
+    <label class="form-label">Торговая точка</label>
+    <select class="form-select" @onchange="OnStorePointChanged">
+        <option value="0">-- Выберите торговую точку --</option>
+        @foreach (var sp in StorePoints)
+        {
+            <option value="@sp.Id">@sp.Name</option>
+        }
+    </select>
+</div>
+
+@if (Data.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Наименование</th>
+                    <th>Цена закупки</th>
+                    <th>Наценка</th>
+                    <th>Дата поступления</th>
+                    <th>ТТН</th>
+                    <th>Гарантия</th>
+                    <th>Поставщик</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Data)
+                {
+                    <tr>
+                        <td>@item.Name</td>
+                        <td>@item.PurchasePrice.ToString("C0")</td>
+                        <td>@item.SupplierMarkup.ToString("P0")</td>
+                        <td>@item.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                        <td><code>@item.InvoiceNumber</code></td>
+                        <td>@item.WarrantyMonths мес.</td>
+                        <td>@item.SupplierName</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted">Всего товаров: <strong>@Data.Count</strong></p>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>Выберите торговую точку для просмотра товаров
+    </div>
+}
+
+@code {
+    [Parameter] public List<StorePointEquipmentDto> Data { get; set; } = new();
+    [Parameter] public List<StorePoint> StorePoints { get; set; } = new();
+    [Parameter] public EventCallback<int> OnFilterChanged { get; set; }
+
+    private async Task OnStorePointChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int storePointId) && storePointId > 0)
+        {
+            await OnFilterChanged.InvokeAsync(storePointId);
+        }
+    }
+}

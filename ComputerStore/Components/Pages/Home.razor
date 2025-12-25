@@ -1,0 +1,264 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using ComputerStore.Services
+@using ComputerStore.Models.DTOs
+@inject IReportService ReportService
+
+<PageTitle>Панель управления - Компьютерная фирма</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-4">Панель управления</h1>
+            <p class="lead text-muted">Информационная система компьютерной фирмы</p>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <!-- Статистика -->
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Общая выручка</h6>
+                                <h3 class="mb-0">@revenueReport.TotalRevenue.ToString("C0")</h3>
+                            </div>
+                            <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-currency-dollar fs-3 text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Прибыль</h6>
+                                <h3 class="mb-0">@revenueReport.TotalProfit.ToString("C0")</h3>
+                            </div>
+                            <div class="bg-success bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-graph-up fs-3 text-success"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Наличные</h6>
+                                <h3 class="mb-0">@revenueReport.CashRevenue.ToString("C0")</h3>
+                            </div>
+                            <div class="bg-warning bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-cash-stack fs-3 text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-2">Безналичные</h6>
+                                <h3 class="mb-0">@revenueReport.CashlessRevenue.ToString("C0")</h3>
+                            </div>
+                            <div class="bg-info bg-opacity-10 p-3 rounded">
+                                <i class="bi bi-credit-card fs-3 text-info"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Быстрые ссылки -->
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0">Быстрые действия</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <a href="/sales/create" class="btn btn-outline-primary w-100 py-3">
+                                    <i class="bi bi-cart-plus fs-4 d-block mb-2"></i>
+                                    Новая продажа
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="/orders/customer" class="btn btn-outline-success w-100 py-3">
+                                    <i class="bi bi-clipboard-check fs-4 d-block mb-2"></i>
+                                    Заказ клиента
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="/equipment/transfer" class="btn btn-outline-info w-100 py-3">
+                                    <i class="bi bi-arrow-left-right fs-4 d-block mb-2"></i>
+                                    Перемещение товара
+                                </a>
+                            </div>
+                            <div class="col-md-3">
+                                <a href="/reports" class="btn btn-outline-secondary w-100 py-3">
+                                    <i class="bi bi-file-earmark-text fs-4 d-block mb-2"></i>
+                                    Отчеты
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Нарушения лимита кассы -->
+            @if (violations.Any())
+            {
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm border-start border-danger border-4">
+                        <div class="card-header bg-white py-3">
+                            <h5 class="mb-0 text-danger">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                Превышения лимита кассы
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Торговая точка</th>
+                                            <th>Касса</th>
+                                            <th>Дата</th>
+                                            <th>Лимит</th>
+                                            <th>Фактическая сумма</th>
+                                            <th>Превышение</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var v in violations.Take(5))
+                                        {
+                                            <tr>
+                                                <td>@v.StorePointName</td>
+                                                <td><code>@v.CashRegisterNumber</code></td>
+                                                <td>@v.ViolationDate.ToString("dd.MM.yyyy")</td>
+                                                <td>@v.LimitAmount.ToString("C0")</td>
+                                                <td class="text-danger fw-bold">@v.ActualAmount.ToString("C0")</td>
+                                                <td class="text-danger">+@v.ExcessAmount.ToString("C0")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if (violations.Count > 5)
+                            {
+                                <a href="/reports/violations" class="btn btn-sm btn-outline-danger">
+                                    Показать все (@violations.Count)
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Популярные товары -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0">Популярные товары</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            @foreach (var product in popularProducts.Take(5))
+                            {
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span>@product.ProductName</span>
+                                    <span class="badge bg-primary rounded-pill">@product.SalesCount продаж</span>
+                                </div>
+                            }
+                        </div>
+                        @if (!popularProducts.Any())
+                        {
+                            <p class="text-muted text-center py-3">Нет данных о продажах</p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Нереализованные товары -->
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-white py-3">
+                        <h5 class="mb-0">Товары на складе (долгий срок)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group list-group-flush">
+                            @foreach (var product in unsoldProducts.OrderByDescending(p => p.DaysInStock).Take(5))
+                            {
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="fw-medium">@product.ProductName</span>
+                                        <span class="badge bg-warning text-dark">@product.DaysInStock дней</span>
+                                    </div>
+                                    <small class="text-muted">@product.Location</small>
+                                </div>
+                            }
+                        </div>
+                        @if (!unsoldProducts.Any())
+                        {
+                            <p class="text-muted text-center py-3">Все товары реализованы</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isLoading = true;
+    private RevenueReportDto revenueReport = new();
+    private List<PopularProductDto> popularProducts = new();
+    private List<UnsoldProductDto> unsoldProducts = new();
+    private List<CashLimitViolationDto> violations = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        isLoading = true;
+        try
+        {
+            var startDate = DateTime.Today.AddMonths(-1);
+            var endDate = DateTime.Today;
+
+            revenueReport = await ReportService.GetRevenueReport(startDate, endDate);
+            popularProducts = await ReportService.GetPopularProducts(startDate, endDate);
+            unsoldProducts = await ReportService.GetUnsoldProducts(startDate, endDate);
+            violations = await ReportService.GetCashLimitViolations();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

@@ -1,0 +1,269 @@
+﻿@page "/equipment/transfer"
+@rendermode InteractiveServer
+@using ComputerStore.Services
+@using ComputerStore.Models
+@using ComputerStore.Data
+@using Microsoft.EntityFrameworkCore
+@inject IOrderService OrderService
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Перемещение товара</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Главная</a></li>
+                    <li class="breadcrumb-item active">Перемещение товара</li>
+                </ol>
+            </nav>
+            <h1 class="display-5">Перемещение товара со склада в торговый зал</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            @errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            @successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+                        </div>
+                    }
+
+                    <div class="mb-4">
+                        <h5 class="mb-3">Товары на центральном складе</h5>
+
+                        @if (warehouseEquipment.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Наименование</th>
+                                            <th>Цена</th>
+                                            <th>Поставщик</th>
+                                            <th>Дата поступления</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var equipment in warehouseEquipment)
+                                        {
+                                            <tr class="@(selectedEquipmentId == equipment.Id ? "table-primary" : "")">
+                                                <td>@equipment.Name</td>
+                                                <td>@equipment.PurchasePrice.ToString("C0")</td>
+                                                <td>@equipment.Supplier.Name</td>
+                                                <td>@equipment.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                                                <td>
+                                                    <button type="button"
+                                                            class="btn btn-sm @(selectedEquipmentId == equipment.Id ? "btn-primary" : "btn-outline-primary")"
+                                                            @onclick="() => SelectEquipment(equipment.Id)">
+                                                        @(selectedEquipmentId == equipment.Id ? "Выбрано" : "Выбрать")
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                На центральном складе нет товаров для перемещения
+                            </div>
+                        }
+                    </div>
+
+                    @if (selectedEquipmentId > 0)
+                    {
+                        <hr class="my-4" />
+
+                        <div class="mb-3">
+                            <label class="form-label">Торговая точка назначения *</label>
+                            <select class="form-select" @bind="selectedStorePointId">
+                                <option value="0">-- Выберите торговую точку --</option>
+                                @foreach (var sp in storePoints)
+                                {
+                                    <option value="@sp.Id">@sp.Name - @sp.Address</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-secondary" @onclick="ClearSelection">
+                                <i class="bi bi-x-lg me-2"></i>Отмена
+                            </button>
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    @onclick="TransferEquipment"
+                                    @attributes="GetDisabledAttr()">
+                                <i class="bi bi-arrow-right me-2"></i>Переместить
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Информация
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Для перемещения товара со склада в торговый зал:
+                    </p>
+                    <ol>
+                        <li>Выберите товар из списка на складе</li>
+                        <li>Укажите торговую точку назначения</li>
+                        <li>Нажмите "Переместить"</li>
+                    </ol>
+                    <div class="alert alert-warning mt-3">
+                        <small>
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            После перемещения товар будет доступен для продажи в выбранной торговой точке
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Статистика склада</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Всего на складе:</span>
+                        <span class="badge bg-primary">@warehouseEquipment.Count</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Общая стоимость:</span>
+                        <span class="fw-bold">@warehouseEquipment.Sum(e => e.PurchasePrice).ToString("C0")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Equipment> warehouseEquipment = new();
+    private List<StorePoint> storePoints = new();
+    private int selectedEquipmentId = 0;
+    private int selectedStorePointId = 0;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        warehouseEquipment = await DbContext.Equipments
+            .Include(e => e.Supplier)
+            .Where(e => e.IsOnCentralWarehouse && !e.IsSold)
+            .OrderBy(e => e.Name)
+            .ToListAsync();
+
+        storePoints = await DbContext.StorePoints
+            .OrderBy(sp => sp.Name)
+            .ToListAsync();
+    }
+
+    private void SelectEquipment(int equipmentId)
+    {
+        selectedEquipmentId = equipmentId;
+        selectedStorePointId = 0;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void ClearSelection()
+    {
+        selectedEquipmentId = 0;
+        selectedStorePointId = 0;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private Dictionary<string, object>? GetDisabledAttr()
+    {
+        return selectedStorePointId == 0
+            ? new() { ["disabled"] = "disabled" }
+            : null;
+    }
+
+    private async Task TransferEquipment()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            if (selectedEquipmentId == 0)
+            {
+                errorMessage = "Выберите товар для перемещения";
+                return;
+            }
+
+            if (selectedStorePointId == 0)
+            {
+                errorMessage = "Выберите торговую точку";
+                return;
+            }
+
+            var equipment = warehouseEquipment.FirstOrDefault(e => e.Id == selectedEquipmentId);
+            var storePoint = storePoints.FirstOrDefault(sp => sp.Id == selectedStorePointId);
+
+            if (equipment == null || storePoint == null)
+            {
+                errorMessage = "Ошибка при получении данных";
+                return;
+            }
+
+            var success = await OrderService.TransferEquipmentToStorePoint(
+                selectedEquipmentId,
+                selectedStorePointId
+            );
+
+            if (success)
+            {
+                successMessage = $"Товар '{equipment.Name}' успешно перемещен в '{storePoint.Name}'";
+
+                // Обновляем список
+                await LoadData();
+                ClearSelection();
+            }
+            else
+            {
+                errorMessage = "Не удалось переместить товар";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

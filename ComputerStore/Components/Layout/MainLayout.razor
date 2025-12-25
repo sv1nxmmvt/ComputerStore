@@ -1,0 +1,143 @@
+﻿@* Components/Layout/MainLayout.razor *@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+
+<div class="d-flex">
+    <!-- Sidebar -->
+    <nav class="sidebar @(showSidebar ? "show" : "")">
+        <div class="sidebar-header">
+            <h4>
+                <i class="bi bi-laptop me-2"></i>
+                Компьютерная фирма
+            </h4>
+            <small class="text-white-50">Информационная система</small>
+        </div>
+
+        <div class="sidebar-menu">
+            <a href="/" class="sidebar-menu-item @(IsActive("/") ? "active" : "")">
+                <i class="bi bi-house-door"></i>
+                <span>Главная</span>
+            </a>
+
+            <div class="px-3 py-2 mt-3">
+                <small class="text-white-50 text-uppercase fw-bold">Продажи</small>
+            </div>
+
+            <a href="/sales/create" class="sidebar-menu-item @(IsActive("/sales/create") ? "active" : "")">
+                <i class="bi bi-cart-plus"></i>
+                <span>Новая продажа</span>
+            </a>
+
+            <a href="/orders/customer" class="sidebar-menu-item @(IsActive("/orders/customer") ? "active" : "")">
+                <i class="bi bi-clipboard-check"></i>
+                <span>Заказ клиента</span>
+            </a>
+
+            <div class="px-3 py-2 mt-3">
+                <small class="text-white-50 text-uppercase fw-bold">Управление</small>
+            </div>
+
+            <a href="/equipment/transfer" class="sidebar-menu-item @(IsActive("/equipment/transfer") ? "active" : "")">
+                <i class="bi bi-arrow-left-right"></i>
+                <span>Перемещение товара</span>
+            </a>
+
+            <a href="/orders/supplier" class="sidebar-menu-item @(IsActive("/orders/supplier") ? "active" : "")">
+                <i class="bi bi-truck"></i>
+                <span>Заказы поставщикам</span>
+            </a>
+
+            <div class="px-3 py-2 mt-3">
+                <small class="text-white-50 text-uppercase fw-bold">Отчеты</small>
+            </div>
+
+            <a href="/reports" class="sidebar-menu-item @(IsActive("/reports") ? "active" : "")">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Все отчеты</span>
+            </a>
+
+            <div class="px-3 py-2 mt-3">
+                <small class="text-white-50 text-uppercase fw-bold">Справочники</small>
+            </div>
+
+            <a href="/reference/sellers" class="sidebar-menu-item @(IsActive("/reference/sellers") ? "active" : "")">
+                <i class="bi bi-people"></i>
+                <span>Продавцы</span>
+            </a>
+
+            <a href="/reference/suppliers" class="sidebar-menu-item @(IsActive("/reference/suppliers") ? "active" : "")">
+                <i class="bi bi-building"></i>
+                <span>Поставщики</span>
+            </a>
+
+            <a href="/reference/storepoints" class="sidebar-menu-item @(IsActive("/reference/storepoints") ? "active" : "")">
+                <i class="bi bi-shop"></i>
+                <span>Торговые точки</span>
+            </a>
+
+            <a href="/reference/equipment" class="sidebar-menu-item @(IsActive("/reference/equipment") ? "active" : "")">
+                <i class="bi bi-box-seam"></i>
+                <span>Оборудование</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Mobile Toggle Button -->
+    <button class="btn btn-primary d-lg-none position-fixed"
+            style="top: 10px; left: 10px; z-index: 1001;"
+            @onclick="ToggleSidebar">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <!-- Main Content -->
+    <div class="main-content flex-grow-1">
+        @Body
+    </div>
+</div>
+
+<!-- Error UI -->
+<div id="blazor-error-ui" data-nosnippet>
+    <div class="d-flex align-items-center">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span>Произошла ошибка. Попробуйте </span>
+        <a href="." class="reload ms-1">перезагрузить страницу</a>
+    </div>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool showSidebar = false;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        showSidebar = false;
+        StateHasChanged();
+    }
+
+    private void ToggleSidebar()
+    {
+        showSidebar = !showSidebar;
+    }
+
+    private bool IsActive(string path)
+    {
+        var currentPath = new Uri(Navigation.Uri).PathAndQuery;
+
+        if (path == "/")
+        {
+            return currentPath == "/" || currentPath == "";
+        }
+
+        return currentPath.StartsWith(path, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+}

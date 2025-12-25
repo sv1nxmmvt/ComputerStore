@@ -1,0 +1,56 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportWeeklyOrders.razor *@
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Общий недельный заказ фирмы</h4>
+
+<div class="mb-3">
+    <label class="form-label">Начало недели</label>
+    <input type="date" class="form-control" @bind="weekStart" @bind:after="LoadReport" />
+</div>
+
+@if (Data.Any())
+{
+    <div class="row g-3">
+        @foreach (var order in Data)
+        {
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">@order.SupplierName</h5>
+                        <small class="text-muted">
+                            Неделя: @order.WeekStart.ToString("dd.MM.yyyy") - @order.WeekEnd.ToString("dd.MM.yyyy")
+                        </small>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            @foreach (var item in order.OrderedItems)
+                            {
+                                <li><i class="bi bi-check2 text-success me-2"></i>@item</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>Заказов за указанную неделю нет
+    </div>
+}
+
+@code {
+    [Parameter] public List<WeeklySupplierOrderDto> Data { get; set; } = new();
+    [Parameter] public EventCallback<DateTime> OnFilterChanged { get; set; }
+
+    private DateTime weekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + 1);
+
+    private async Task LoadReport()
+    {
+        await OnFilterChanged.InvokeAsync(weekStart);
+    }
+}

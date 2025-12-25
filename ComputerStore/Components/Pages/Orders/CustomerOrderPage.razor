@@ -1,0 +1,233 @@
+﻿@page "/orders/customer"
+@rendermode InteractiveServer
+@using ComputerStore.Services
+@using ComputerStore.Models
+@using ComputerStore.Data
+@using Microsoft.EntityFrameworkCore
+@inject IOrderService OrderService
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Заказ клиента</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Главная</a></li>
+                    <li class="breadcrumb-item active">Заказ клиента</li>
+                </ol>
+            </nav>
+            <h1 class="display-5">Оформление заказа клиента</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            @errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            @successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+                        </div>
+                    }
+
+                    <EditForm Model="@orderModel" OnValidSubmit="HandleSubmit">
+                        <div class="mb-3">
+                            <label class="form-label">Продавец *</label>
+                            <select class="form-select" @bind="orderModel.SellerId" required>
+                                <option value="0">-- Выберите продавца --</option>
+                                @foreach (var seller in sellers)
+                                {
+                                    <option value="@seller.Id">@seller.FullName</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Наименование оборудования *</label>
+                            <input type="text" class="form-control"
+                                   @bind="orderModel.EquipmentName"
+                                   placeholder="Например: Процессор Intel Core i9-14900K"
+                                   required />
+                            <small class="form-text text-muted">
+                                Укажите точное наименование требуемого товара
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Количество *</label>
+                            <input type="number" class="form-control"
+                                   @bind="orderModel.Quantity"
+                                   min="1"
+                                   required />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Примечания</label>
+                            <textarea class="form-control"
+                                      @bind="orderModel.Notes"
+                                      rows="3"
+                                      placeholder="Дополнительные требования или пожелания"></textarea>
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <div class="d-flex justify-content-between">
+                            <a href="/" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Отмена
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-2"></i>Оформить заказ
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-info-circle me-2"></i>Информация
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        Если требуемого товара нет на складе или в торговых залах,
+                        продавец может оформить заказ клиента.
+                    </p>
+                    <p>
+                        Все заказы за неделю будут объединены старшим менеджером
+                        в общий заказ для поставщиков.
+                    </p>
+                    <p class="mb-0">
+                        <strong>Статус заказа можно проверить в разделе "Отчеты".</strong>
+                    </p>
+                </div>
+            </div>
+
+            @if (recentOrders.Any())
+            {
+                <div class="card border-0 shadow-sm mt-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">Недавние заказы</h5>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        @foreach (var order in recentOrders)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">@order.OrderDate.ToString("dd.MM HH:mm")</small>
+                                    @if (order.IsProcessed)
+                                    {
+                                        <span class="badge bg-success">Обработан</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark">Ожидает</span>
+                                    }
+                                </div>
+                                <p class="mb-1 fw-medium">@order.EquipmentName</p>
+                                <small class="text-muted">Количество: @order.Quantity</small>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private class OrderModel
+    {
+        public int SellerId { get; set; }
+        public string EquipmentName { get; set; } = string.Empty;
+        public int Quantity { get; set; } = 1;
+        public string Notes { get; set; } = string.Empty;
+    }
+
+    private OrderModel orderModel = new();
+    private List<Seller> sellers = new();
+    private List<CustomerOrder> recentOrders = new();
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        sellers = await DbContext.Sellers.OrderBy(s => s.LastName).ToListAsync();
+        await LoadRecentOrders();
+    }
+
+    private async Task LoadRecentOrders()
+    {
+        var weekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + 1);
+        recentOrders = await DbContext.CustomerOrders
+            .Where(o => o.OrderDate >= weekStart)
+            .OrderByDescending(o => o.OrderDate)
+            .Take(5)
+            .ToListAsync();
+    }
+
+    private async Task HandleSubmit()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            if (orderModel.SellerId == 0)
+            {
+                errorMessage = "Выберите продавца";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(orderModel.EquipmentName))
+            {
+                errorMessage = "Укажите наименование оборудования";
+                return;
+            }
+
+            if (orderModel.Quantity <= 0)
+            {
+                errorMessage = "Количество должно быть больше нуля";
+                return;
+            }
+
+            await OrderService.CreateCustomerOrder(
+                orderModel.SellerId,
+                orderModel.EquipmentName,
+                orderModel.Quantity,
+                orderModel.Notes
+            );
+
+            successMessage = "Заказ успешно оформлен и отправлен старшему менеджеру";
+
+            // Очистка формы
+            orderModel = new OrderModel();
+            await LoadRecentOrders();
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

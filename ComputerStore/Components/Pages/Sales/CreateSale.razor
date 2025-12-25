@@ -1,0 +1,416 @@
+﻿@page "/sales/create"
+@rendermode InteractiveServer
+@using ComputerStore.Services
+@using ComputerStore.Models
+@using ComputerStore.Data
+@using Microsoft.EntityFrameworkCore
+@inject ISalesService SalesService
+@inject ApplicationDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Новая продажа</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">Главная</a></li>
+                    <li class="breadcrumb-item active">Новая продажа</li>
+                </ol>
+            </nav>
+            <h1 class="display-5">Оформление продажи</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            @errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            @successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+                        </div>
+                    }
+
+                    <EditForm Model="@saleModel" OnValidSubmit="HandleSubmit">
+                        <DataAnnotationsValidator />
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label">Продавец *</label>
+                                <select class="form-select" @bind="saleModel.SellerId">
+                                    <option value="0">-- Выберите продавца --</option>
+                                    @foreach (var seller in sellers)
+                                    {
+                                        <option value="@seller.Id">@seller.FullName</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Торговая точка *</label>
+                                <select class="form-select" @bind="saleModel.StorePointId" @bind:after="OnStorePointChanged">
+                                    <option value="0">-- Выберите торговую точку --</option>
+                                    @foreach (var sp in storePoints)
+                                    {
+                                        <option value="@sp.Id">@sp.Name</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Тип оплаты *</label>
+                                <select class="form-select" @bind="saleModel.PaymentType" @bind:after="OnPaymentTypeChanged">
+                                    <option value="@PaymentType.Cash">Наличные (розница)</option>
+                                    <option value="@PaymentType.Cashless">Безналичный расчет</option>
+                                </select>
+                            </div>
+
+                            @if (saleModel.PaymentType == PaymentType.Cash)
+                            {
+                                <div class="col-md-6">
+                                    <label class="form-label">Кассовый аппарат *</label>
+                                    <select class="form-select" @bind="saleModel.CashRegisterId">
+                                        <option value="">-- Выберите КСА --</option>
+                                        @foreach (var cr in cashRegisters)
+                                        {
+                                            <option value="@cr.Id">
+                                                @cr.RegistrationNumber (лимит: @cr.CashLimit.ToString("C0"))
+                                            </option>
+                                        }
+                                    </select>
+                                </div>
+                            }
+                        </div>
+
+                        <hr class="my-4" />
+
+                        <h5 class="mb-3">Товары для продажи</h5>
+
+                        @if (saleModel.StorePointId > 0)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Добавить товар</label>
+                                <div class="input-group">
+                                    <select class="form-select" @bind="selectedEquipmentId">
+                                        <option value="0">-- Выберите товар --</option>
+                                        @foreach (var eq in availableEquipment)
+                                        {
+                                            <option value="@eq.Id">
+                                                @eq.Name (закупка: @eq.PurchasePrice.ToString("C0"), наценка: @eq.SupplierMarkup.ToString("P0"))
+                                            </option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn btn-primary" @onclick="AddEquipment">
+                                        <i class="bi bi-plus-lg"></i> Добавить
+                                    </button>
+                                </div>
+                            </div>
+
+                            @if (saleModel.Items.Any())
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Наименование</th>
+                                                <th>Цена закупки</th>
+                                                <th>Наценка поставщика</th>
+                                                <th>Наценка продавца (%)</th>
+                                                <th>Итоговая цена</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var item in saleModel.Items)
+                                            {
+                                                var equipment = availableEquipment.FirstOrDefault(e => e.Id == item.EquipmentId);
+                                                if (equipment != null)
+                                                {
+                                                    var totalMarkup = equipment.SupplierMarkup + item.SellerMarkup;
+                                                    var priceWithMarkup = equipment.PurchasePrice * (1 + totalMarkup);
+                                                    var vat = priceWithMarkup * 0.18m;
+                                                    var finalPrice = priceWithMarkup + vat;
+                                                    if (saleModel.PaymentType == PaymentType.Cash)
+                                                    {
+                                                        finalPrice += (priceWithMarkup + vat) * 0.05m;
+                                                    }
+
+                                                    <tr class="@(totalMarkup > 0.30m ? "table-danger" : "")">
+                                                        <td>@equipment.Name</td>
+                                                        <td>@equipment.PurchasePrice.ToString("C0")</td>
+                                                        <td>@equipment.SupplierMarkup.ToString("P0")</td>
+                                                        <td>
+                                                            <input type="number" class="form-control form-control-sm"
+                                                                   style="width: 100px"
+                                                                   min="0" max="30" step="1"
+                                                                   @bind="item.SellerMarkup"
+                                                                   @bind:event="oninput"
+                                                                   @onchange="StateHasChanged" />
+                                                        </td>
+                                                        <td class="fw-bold">@finalPrice.ToString("C0")</td>
+                                                        <td>
+                                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                                    @onclick="() => RemoveEquipment(item)">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                    @if (totalMarkup > 0.30m)
+                                                    {
+                                                        <tr>
+                                                            <td colspan="6" class="text-danger small">
+                                                                ⚠️ Суммарная наценка (@totalMarkup.ToString("P0")) превышает максимум (30%)
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                }
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Добавьте товары для продажи
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                Сначала выберите торговую точку
+                            </div>
+                        }
+
+                        <hr class="my-4" />
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="/" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Отмена
+                            </a>
+                            <button type="submit"
+                                    class="btn btn-primary btn-lg"
+                                    @attributes="SubmitButtonAttributes">
+                                <i class="bi bi-check-lg me-2"></i>Оформить продажу
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm sticky-top" style="top: 20px;">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Итого</h5>
+                </div>
+                <div class="card-body">
+                    @{
+                        decimal total = 0;
+                        foreach (var item in saleModel.Items)
+                        {
+                            var equipment = availableEquipment.FirstOrDefault(e => e.Id == item.EquipmentId);
+                            if (equipment != null)
+                            {
+                                var totalMarkup = equipment.SupplierMarkup + item.SellerMarkup;
+                                var priceWithMarkup = equipment.PurchasePrice * (1 + totalMarkup);
+                                var vat = priceWithMarkup * 0.18m;
+                                var finalPrice = priceWithMarkup + vat;
+                                if (saleModel.PaymentType == PaymentType.Cash)
+                                {
+                                    finalPrice += (priceWithMarkup + vat) * 0.05m;
+                                }
+                                total += finalPrice;
+                            }
+                        }
+                    }
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Количество товаров:</span>
+                        <span class="fw-bold">@saleModel.Items.Count</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Тип оплаты:</span>
+                        <span class="fw-bold">
+                            @(saleModel.PaymentType == PaymentType.Cash ? "Наличные" : "Безналичный")
+                        </span>
+                    </div>
+                    <hr />
+                    <div class="d-flex justify-content-between">
+                        <span class="h5 mb-0">Итоговая сумма:</span>
+                        <span class="h4 mb-0 text-primary">@total.ToString("C0")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private class SaleModel
+    {
+        public int SellerId { get; set; }
+        public int StorePointId { get; set; }
+        public PaymentType PaymentType { get; set; } = PaymentType.Cash;
+        public int? CashRegisterId { get; set; }
+        public List<SaleItemModel> Items { get; set; } = new();
+    }
+
+    private class SaleItemModel
+    {
+        public int EquipmentId { get; set; }
+        public decimal SellerMarkup { get; set; } = 0.10m;
+    }
+
+    private SaleModel saleModel = new();
+    private List<Seller> sellers = new();
+    private List<StorePoint> storePoints = new();
+    private List<CashRegister> cashRegisters = new();
+    private List<Equipment> availableEquipment = new();
+    private int selectedEquipmentId = 0;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        sellers = await DbContext.Sellers.OrderBy(s => s.LastName).ToListAsync();
+        storePoints = await DbContext.StorePoints.OrderBy(sp => sp.Name).ToListAsync();
+    }
+
+    private async Task OnStorePointChanged()
+    {
+        if (saleModel.StorePointId > 0)
+        {
+            cashRegisters = await DbContext.CashRegisters
+                .Where(cr => cr.StorePointId == saleModel.StorePointId)
+                .ToListAsync();
+
+            availableEquipment = await DbContext.Equipments
+                .Include(e => e.Supplier)
+                .Where(e => e.StorePointId == saleModel.StorePointId && !e.IsSold)
+                .OrderBy(e => e.Name)
+                .ToListAsync();
+        }
+        else
+        {
+            cashRegisters.Clear();
+            availableEquipment.Clear();
+        }
+
+        saleModel.CashRegisterId = null;
+        saleModel.Items.Clear();
+    }
+
+    private void OnPaymentTypeChanged()
+    {
+        if (saleModel.PaymentType == PaymentType.Cashless)
+        {
+            saleModel.CashRegisterId = null;
+        }
+    }
+
+    private void AddEquipment()
+    {
+        if (selectedEquipmentId > 0 && !saleModel.Items.Any(i => i.EquipmentId == selectedEquipmentId))
+        {
+            saleModel.Items.Add(new SaleItemModel
+            {
+                EquipmentId = selectedEquipmentId,
+                SellerMarkup = 0.10m
+            });
+            selectedEquipmentId = 0;
+        }
+    }
+
+    private void RemoveEquipment(SaleItemModel item)
+    {
+        saleModel.Items.Remove(item);
+    }
+
+    private Dictionary<string, object> SubmitButtonAttributes =>
+    saleModel.Items.Any()
+        ? new()
+        : new() { ["disabled"] = "disabled" };
+
+    private async Task HandleSubmit()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            if (saleModel.SellerId == 0)
+            {
+                errorMessage = "Выберите продавца";
+                return;
+            }
+
+            if (saleModel.StorePointId == 0)
+            {
+                errorMessage = "Выберите торговую точку";
+                return;
+            }
+
+            if (saleModel.PaymentType == PaymentType.Cash && !saleModel.CashRegisterId.HasValue)
+            {
+                errorMessage = "Выберите кассовый аппарат для наличной оплаты";
+                return;
+            }
+
+            if (saleModel.PaymentType == PaymentType.Cashless)
+            {
+                var storePoint = await DbContext.StorePoints.FindAsync(saleModel.StorePointId);
+                if (storePoint != null && !storePoint.CanProcessCashless)
+                {
+                    errorMessage = "Данная торговая точка не может обрабатывать безналичные платежи";
+                    return;
+                }
+            }
+
+            var items = saleModel.Items.Select(i => new SaleItemRequest
+            {
+                EquipmentId = i.EquipmentId,
+                SellerMarkup = i.SellerMarkup
+            }).ToList();
+
+            var sale = await SalesService.CreateSale(
+                saleModel.SellerId,
+                saleModel.StorePointId,
+                saleModel.PaymentType,
+                items,
+                saleModel.CashRegisterId
+            );
+
+            successMessage = $"Продажа успешно оформлена! " +
+                $"{(saleModel.PaymentType == PaymentType.Cash ? $"Чек: {sale.CheckNumber}" : $"П/П: {sale.PaymentOrderNumber}")}";
+
+            // Очистка формы
+            saleModel = new SaleModel();
+            await OnStorePointChanged();
+
+            await Task.Delay(2000);
+            Navigation.NavigateTo("/");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

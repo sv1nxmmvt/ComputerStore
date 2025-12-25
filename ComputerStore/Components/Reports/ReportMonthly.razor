@@ -1,0 +1,157 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportMonthly.razor *@
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Ежемесячный отчет о работе фирмы</h4>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label">Месяц</label>
+        <select class="form-select" @bind="selectedMonth">
+            @for (int i = 1; i <= 12; i++)
+            {
+                <option value="@i">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(i)</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Год</label>
+        <select class="form-select" @bind="selectedYear">
+            @for (int y = DateTime.Now.Year - 1; y <= DateTime.Now.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </div>
+</div>
+<button class="btn btn-primary mb-3" @onclick="LoadReport">
+    <i class="bi bi-search me-2"></i>Сформировать
+</button>
+
+@if (Data.Any())
+{
+    @foreach (var sp in Data)
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">@sp.StorePointName</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6>Отгруженные товары</h6>
+                        @if (sp.ShippedProducts.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Товар</th>
+                                            <th>Количество</th>
+                                            <th>Дата</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var product in sp.ShippedProducts)
+                                        {
+                                            <tr>
+                                                <td>@product.Name</td>
+                                                <td>@product.Quantity</td>
+                                                <td>@product.ShipmentDate.ToString("dd.MM.yyyy")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted">Отгрузки отсутствуют</p>
+                        }
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Проданные товары</h6>
+                        @if (sp.SoldProducts.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Товар</th>
+                                            <th>Кол-во</th>
+                                            <th>Выручка</th>
+                                            <th>Прибыль</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var product in sp.SoldProducts)
+                                        {
+                                            <tr>
+                                                <td>@product.Name</td>
+                                                <td>@product.Quantity</td>
+                                                <td>@product.Revenue.ToString("C0")</td>
+                                                <td class="text-success">@product.Profit.ToString("C0")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted">Продажи отсутствуют</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Общая выручка</h6>
+                                <h4 class="text-primary">@sp.TotalRevenue.ToString("C0")</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Общая прибыль</h6>
+                                <h4 class="text-success">@sp.TotalProfit.ToString("C0")</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="card bg-dark text-white">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Общая выручка фирмы</h5>
+                    <h3>@Data.Sum(d => d.TotalRevenue).ToString("C0")</h3>
+                </div>
+                <div class="col-md-6">
+                    <h5>Общая прибыль фирмы</h5>
+                    <h3>@Data.Sum(d => d.TotalProfit).ToString("C0")</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<MonthlyReportDto> Data { get; set; } = new();
+    [Parameter] public EventCallback<(int Month, int Year)> OnFilterChanged { get; set; }
+
+    private int selectedMonth = DateTime.Now.Month;
+    private int selectedYear = DateTime.Now.Year;
+
+    private async Task LoadReport()
+    {
+        await OnFilterChanged.InvokeAsync((selectedMonth, selectedYear));
+    }
+}

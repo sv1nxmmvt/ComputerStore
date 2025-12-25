@@ -1,0 +1,118 @@
+﻿@* ================================================= *@
+
+@* Pages/Reference/StorePoints.razor *@
+@page "/reference/storepoints"
+@rendermode InteractiveServer
+@using ComputerStore.Data
+@using ComputerStore.Models
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Торговые точки</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-5">Справочник торговых точек</h1>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        @foreach (var sp in storePoints)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">@sp.Name</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">
+                            <i class="bi bi-geo-alt text-muted me-2"></i>
+                            @sp.Address
+                        </p>
+
+                        <div class="mb-3">
+                            @if (sp.CanProcessCashless)
+                            {
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i>Безнал
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-x-circle me-1"></i>Только наличные
+                                </span>
+                            }
+                        </div>
+
+                        <hr />
+
+                        <div class="row text-center g-3">
+                            <div class="col-6">
+                                <div class="p-2 bg-light rounded">
+                                    <small class="text-muted d-block">Товаров</small>
+                                    <strong>@sp.Equipments.Count(e => !e.IsSold)</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 bg-light rounded">
+                                    <small class="text-muted d-block">Касс</small>
+                                    <strong>@sp.CashRegisters.Count</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 bg-light rounded">
+                                    <small class="text-muted d-block">Продаж</small>
+                                    <strong>@sp.Sales.Count</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 bg-light rounded">
+                                    <small class="text-muted d-block">Выручка</small>
+                                    <strong>@sp.Sales.Sum(s => s.TotalWithSalesTax).ToString("C0")</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if (sp.CashRegisters.Any())
+                        {
+                            <hr />
+                            <h6 class="mb-2">Кассовые аппараты:</h6>
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var cr in sp.CashRegisters)
+                                {
+                                    <li class="mb-1">
+                                        <small>
+                                            <code>@cr.RegistrationNumber</code>
+                                            <span class="text-muted">- лимит: @cr.CashLimit.ToString("C0")</span>
+                                        </small>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                    <div class="card-footer bg-light">
+                        <a href="/reports?storepoint=@sp.Id" class="btn btn-sm btn-outline-primary w-100">
+                            <i class="bi bi-graph-up me-1"></i>Отчет
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<StorePoint> storePoints = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        storePoints = await DbContext.StorePoints
+            .Include(sp => sp.Equipments)
+            .Include(sp => sp.CashRegisters)
+            .Include(sp => sp.Sales)
+            .OrderBy(sp => sp.Name)
+            .ToListAsync();
+    }
+}

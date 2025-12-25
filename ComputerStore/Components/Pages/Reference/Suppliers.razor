@@ -1,0 +1,79 @@
+﻿@* ================================================= *@
+
+@* Pages/Reference/Suppliers.razor *@
+@page "/reference/suppliers"
+@rendermode InteractiveServer
+@using ComputerStore.Data
+@using ComputerStore.Models
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext DbContext
+
+<PageTitle>Поставщики</PageTitle>
+
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-5">Справочник поставщиков</h1>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            @if (suppliers.Any())
+            {
+                <div class="row g-4">
+                    @foreach (var supplier in suppliers)
+                    {
+                        <div class="col-md-6 col-lg-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">@supplier.Name</h5>
+                                    <hr />
+                                    <p class="mb-2">
+                                        <i class="bi bi-geo-alt text-muted me-2"></i>
+                                        <small>@supplier.Address</small>
+                                    </p>
+                                    <p class="mb-2">
+                                        <i class="bi bi-telephone text-muted me-2"></i>
+                                        <small>@supplier.Phone</small>
+                                    </p>
+                                    <p class="mb-3">
+                                        <i class="bi bi-person text-muted me-2"></i>
+                                        <small>@supplier.ContactPerson</small>
+                                    </p>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="badge bg-primary">
+                                            Товаров: @supplier.Equipments.Count
+                                        </span>
+                                        <span class="badge bg-success">
+                                            Заказов: @supplier.SupplierOrders.Count
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>Поставщики не найдены
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Supplier> suppliers = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        suppliers = await DbContext.Suppliers
+            .Include(s => s.Equipments)
+            .Include(s => s.SupplierOrders)
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+    }
+}

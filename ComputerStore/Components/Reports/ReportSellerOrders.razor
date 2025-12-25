@@ -1,0 +1,76 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportSellerOrders.razor *@
+@using ComputerStore.Models
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Заказы продавца за текущую неделю</h4>
+
+<div class="mb-3">
+    <label class="form-label">Продавец</label>
+    <select class="form-select" @onchange="OnSellerChanged">
+        <option value="0">-- Выберите продавца --</option>
+        @foreach (var seller in Sellers)
+        {
+            <option value="@seller.Id">@seller.FullName</option>
+        }
+    </select>
+</div>
+
+@if (Data.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Дата</th>
+                    <th>Оборудование</th>
+                    <th>Количество</th>
+                    <th>Примечания</th>
+                    <th>Статус</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var order in Data.OrderByDescending(o => o.OrderDate))
+                {
+                    <tr>
+                        <td>@order.OrderDate.ToString("dd.MM.yyyy")</td>
+                        <td>@order.EquipmentName</td>
+                        <td>@order.Quantity</td>
+                        <td><small>@order.Notes</small></td>
+                        <td>
+                            @if (order.IsProcessed)
+                            {
+                                <span class="badge bg-success">Обработан</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">Ожидает</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>Выберите продавца или нет заказов за текущую неделю
+    </div>
+}
+
+@code {
+    [Parameter] public List<SellerOrderDto> Data { get; set; } = new();
+    [Parameter] public List<Seller> Sellers { get; set; } = new();
+    [Parameter] public EventCallback<int> OnFilterChanged { get; set; }
+
+    private async Task OnSellerChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int sellerId) && sellerId > 0)
+        {
+            await OnFilterChanged.InvokeAsync(sellerId);
+        }
+    }
+}

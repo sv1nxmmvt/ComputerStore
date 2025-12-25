@@ -1,0 +1,86 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportSchedule.razor *@
+@using ComputerStore.Models
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">График работы продавца</h4>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label class="form-label">Продавец</label>
+        <select class="form-select" @bind="selectedSellerId">
+            <option value="0">-- Выберите продавца --</option>
+            @foreach (var seller in Sellers)
+            {
+                <option value="@seller.Id">@seller.FullName</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Месяц</label>
+        <select class="form-select" @bind="selectedMonth">
+            @for (int i = 1; i <= 12; i++)
+            {
+                <option value="@i">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(i)</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Год</label>
+        <select class="form-select" @bind="selectedYear">
+            @for (int y = DateTime.Now.Year - 1; y <= DateTime.Now.Year + 1; y++)
+            {
+                <option value="@y">@y</option>
+            }
+        </select>
+    </div>
+</div>
+<button class="btn btn-primary mb-3" @onclick="LoadReport">
+    <i class="bi bi-search me-2"></i>Сформировать
+</button>
+
+@if (Data.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Дата</th>
+                    <th>День недели</th>
+                    <th>Торговая точка</th>
+                    <th>Время работы</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var schedule in Data)
+                {
+                    <tr>
+                        <td>@schedule.Date.ToString("dd.MM.yyyy")</td>
+                        <td>@schedule.Date.ToString("dddd", new System.Globalization.CultureInfo("ru-RU"))</td>
+                        <td>@schedule.StorePointName</td>
+                        <td>@schedule.StartTime.ToString(@"hh\:mm") - @schedule.EndTime.ToString(@"hh\:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public List<SellerScheduleDto> Data { get; set; } = new();
+    [Parameter] public List<Seller> Sellers { get; set; } = new();
+    [Parameter] public EventCallback<(int SellerId, int Month, int Year)> OnFilterChanged { get; set; }
+
+    private int selectedSellerId = 0;
+    private int selectedMonth = DateTime.Now.Month;
+    private int selectedYear = DateTime.Now.Year;
+
+    private async Task LoadReport()
+    {
+        if (selectedSellerId > 0)
+        {
+            await OnFilterChanged.InvokeAsync((selectedSellerId, selectedMonth, selectedYear));
+        }
+    }
+}

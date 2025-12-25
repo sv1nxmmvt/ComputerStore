@@ -1,0 +1,57 @@
+﻿@* ================================================= *@
+
+@* Components/Reports/ReportWarehouse.razor *@
+@using ComputerStore.Models.DTOs
+
+<h4 class="mb-4">Состояние центрального склада</h4>
+
+<div class="mb-3">
+    <label class="form-label">Дата</label>
+    <input type="date" class="form-control" @bind="selectedDate" @bind:after="OnDateChanged" />
+</div>
+
+@if (Data.Any())
+{
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Наименование</th>
+                    <th>Цена закупки</th>
+                    <th>Дата поступления</th>
+                    <th>Поставщик</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Data)
+                {
+                    <tr>
+                        <td>@item.Name</td>
+                        <td>@item.PurchasePrice.ToString("C0")</td>
+                        <td>@item.ReceiptDate.ToString("dd.MM.yyyy")</td>
+                        <td>@item.SupplierName</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <p class="text-muted">Всего товаров на складе: <strong>@Data.Count</strong></p>
+}
+else
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>На выбранную дату товаров на складе нет
+    </div>
+}
+
+@code {
+    [Parameter] public List<WarehouseStateDto> Data { get; set; } = new();
+    [Parameter] public EventCallback<DateTime> OnFilterChanged { get; set; }
+
+    private DateTime selectedDate = DateTime.Today;
+
+    private async Task OnDateChanged()
+    {
+        await OnFilterChanged.InvokeAsync(selectedDate);
+    }
+}
